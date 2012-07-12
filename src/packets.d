@@ -1,6 +1,6 @@
 module Co3mu.Packets;
 
-import std.string, Co3mu.Helper, Co3mu.Encryption, Co3mu.PacketBuilding, Co3mu.Character, std.datetime, std.stdio;
+import std.string, Co3mu.Encryption, Co3mu.PacketBuilding, Co3mu.Character, std.datetime, std.stdio, Co3mu.Core;
 
 struct PasswordSeedPacket {
     ushort Size;
@@ -12,7 +12,7 @@ struct AuthMessagePacket {
 	uint AccountID;
 	uint LoginToken;
 	this(ubyte[] data) {
-		LoginToken = c3Helper.readUint32(data, 6);
+		LoginToken = c3Core.readUint32(data, 6);
 	}
 }
 
@@ -24,8 +24,8 @@ struct AuthRequestPacket {
 	string _psw;
 	int state;
 	this(ubyte[] data) {
-		Type = cast(ushort)c3Helper.readUint16(data, 2);
-		Account = c3Helper.readString(data, 4, 16);
+		Type = cast(ushort)c3Core.readUint16(data, 2);
+		Account = c3Core.readString(data, 4, 16);
 		ubyte[] password = data[132 .. 132+16];
 		windows_srand(8000000);
 		ubyte[16] rc5Key;
@@ -36,7 +36,7 @@ struct AuthRequestPacket {
 		ConquerPasswordCryptographer pwcrypt = new ConquerPasswordCryptographer(Account);
 		password = rc.rc5Decrypt(password);
 		password = pwcrypt.Decrypt(password, cast(int)password.length);
-		Password = c3Helper.readString(password, 0, cast(int)password.length);
+		Password = c3Core.readString(password, 0, cast(int)password.length);
 		for(int i=0; i<Account.length; i++) {
 			if((cast(int)Account[i]) != 0)
 				_acc ~= Account[i];
@@ -72,16 +72,135 @@ struct CreateCharacterPacket {
 	ushort charModel;
 	ushort charClass;
 	this(ubyte[] data) {
-		charName = c3Helper.readString(data, 22, 16);
+		charName = c3Core.readString(data, 22, 16);
 		for(int i=0; i<charName.length; i++) {
 			if(charName[i] != 0)
 				_cname ~= charName[i];
 		}
 		charName = _cname;
-		charModel = cast(ushort)c3Helper.readUint16(data, 70);
-		charClass = cast(ushort)c3Helper.readUint16(data, 72);
+		charModel = cast(ushort)c3Core.readUint16(data, 70);
+		charClass = cast(ushort)c3Core.readUint16(data, 72);
 	}
 };
+
+class SpawnPacket {
+	ushort Size;
+	ushort Type;
+	uint UID;
+	uint Model;
+	ulong status;
+	ushort GuildID;
+	ubyte GuildRank;
+	uint GarmentID;
+	uint HelmID;
+	uint Armor;
+	uint RightHand;
+	uint LeftHand;
+	ushort X;
+	ushort Y;
+	ushort Hair;
+	ubyte direction;
+	ubyte action;
+	ubyte reborn;
+	ubyte level;
+	uint Unknown;
+	ubyte showname;
+	ubyte nameLength;
+	string Name;
+	this(c3Char chars) {
+		Type = 10014;
+		Size = cast(ushort)(220 + chars.name.length);
+		UID = chars.UID;
+		Model = chars.model;
+		status = 0;//TODO!!!
+		GuildID = 0;//TODO!
+		GuildRank = 0;
+		GarmentID = 0;//TODO
+		HelmID = 0;//TODO
+		Armor = 0;//TODO
+		RightHand = 0;//TODO
+		LeftHand = 0;//TODO
+		X = cast(ushort)chars.curLoc.X;
+		Y = cast(ushort)chars.curLoc.Y;
+		Hair = cast(ubyte)chars.hair;
+		direction = chars.curLoc.faceDirection;
+		action = 0;//TODO
+		reborn = 1;
+		level = cast(ubyte)chars.curLevel;
+		showname = 3;
+		nameLength = cast(ubyte)chars.name.length;
+		Name = chars.name;
+	}
+	
+	ubyte[] create() {
+		PacketBuilder pb = new PacketBuilder(Size, Type);
+		//pb.putInt(UID);
+		//pb.putInt(Model);
+		pb.putInt(Model);//4-7
+		pb.putInt(UID);//8-11
+		pb.putInt(GuildID);//12-15
+		pb.putShort(GuildRank);//16-17
+		pb.putInt(0);//Unknown//18-21
+		pb.putULong(status);//22-29
+		pb.putULong(status);//status2? 30-37
+		pb.putShort(0);//?? 38-39
+		pb.putInt(HelmID);//40 - 43
+		pb.putInt(GarmentID);//44-47
+		pb.putInt(Armor);//48-51
+		pb.putInt(RightHand);//52-55
+		pb.putInt(LeftHand);//56-59
+		pb.putInt(0);//RightAccesory 60-63
+		pb.putInt(0);//LeftAccesory 64 - 67
+		pb.putInt(0);//Mount type 68-71
+		pb.putInt(0);//Unknown 72 - 75
+		pb.putInt(0);//Mount armor 76 - 79
+		pb.putShort(0);//HP 80, 81
+		pb.putShort(0);//mob level 82, 83
+		pb.putShort(Hair); //84, 85
+		pb.putShort(X); //86, 87
+		pb.putShort(Y); //88, 89
+		pb.putByte(direction); //90
+		pb.putByte(action); //91
+		pb.putShort(0);//Unknown 92, 93
+		pb.putInt(0);//Unknown 94 - 97
+		pb.putByte(reborn); // 98
+		pb.putShort(level); // 99, 100
+		pb.putByte(0);//Unknown 101
+		pb.putInt(0);//away status? 102 - 105
+		pb.putULong(0); // 106 - 113
+		pb.putInt(0); // 114 - 117
+		pb.putByte(0);//118
+		pb.putByte(0);//Nobility 119
+		pb.putShort(0); //120, 121
+		pb.putByte(0); // 122
+		pb.putShort(0);//ArmorColor 123, 124
+		pb.putShort(0);//Shieldcolor 125,126
+		pb.putShort(0);//Helm color 127, 128
+		pb.putInt(0);// 129 - 132
+		pb.putByte(0);//Mount+ 133
+		pb.putInt(0);// 134 - 137
+		pb.putByte(0); // 138
+		pb.putInt(0);//Mountcolor? 139 - 142
+		pb.putULong(0);//143 - 150
+		pb.putULong(0);//151 - 158
+		pb.putULong(0);//159 - 166
+		pb.putULong(0);//167 - 174
+		pb.putInt(0);// 175 - 178
+		pb.putShort(0);//179, 180
+		pb.putByte(0);//181 BOSS
+		pb.putInt(0);//HelmArtifact 182 - 185
+		pb.putInt(0);//ArmorArtifact 186 - 189
+		pb.putInt(0);//WeaponRArt 190 - 193
+		pb.putInt(0);//WeaponLArt 194 - 197
+		pb.putULong(0);//198 - 205
+		pb.putULong(0);//206 - 213 210 = profession
+		pb.putInt(0);//214 - 217
+		pb.putByte(showname);// 
+		pb.putByte(nameLength);
+		pb.putString(Name);
+		return pb.seal();
+	}
+}
 class GeneralPacket {
 	ushort Size;
 	ushort Type;
@@ -222,17 +341,17 @@ class HeroInfoPacket {
 		UID = charStor.UID;
 		model = charStor.model;
 		hair = cast(ushort)charStor.hair;
-		cash = charStor.curCurrency.Money;
-		cps = charStor.curCurrency.CPs;
+		cash = charStor.curCurrency.getMoney;
+		cps = charStor.curCurrency.getCPs;
 		exp = charStor.curExp;
 		unknown1 = 0;
-		str = cast(ushort)charStor.curVitals.Strength;
-		dex = cast(ushort)charStor.curVitals.Dexterity;
-		vit = cast(ushort)charStor.curVitals.Vitality;
-		spi = cast(ushort)charStor.curVitals.Spirit;
-		statpoints = cast(ushort)charStor.curVitals.StatPoints;
-		hp = cast(ushort)charStor.curVitals.curHP;
-		mp = cast(ushort)charStor.curVitals.curMP;
+		str = cast(ushort)charStor.curVitals.getStr;
+		dex = cast(ushort)charStor.curVitals.getDex;
+		vit = cast(ushort)charStor.curVitals.getVit;
+		spi = cast(ushort)charStor.curVitals.getSpi;
+		statpoints = cast(ushort)charStor.curVitals.getStatPoints;
+		hp = cast(ushort)charStor.curVitals.getCurHP;
+		mp = cast(ushort)charStor.curVitals.getCurMP;
 		pkpoints = 10;
 		level = cast(ubyte)charStor.curLevel;
 		job = cast(ubyte)charStor.job;
@@ -323,6 +442,21 @@ class ChatPacket {
 		Message = _message; MessageLength = cast(ubyte)Message.length;
 		Size = 29 + FromLength + ToLength + MessageLength + SuffixLength;
 	}
+	this(ubyte[] data) {
+		ChatType = c3Core.readUint32(data, 6);
+		int Pos = 23;
+		FromLength = cast(uint)data[Pos];
+		From = c3Core.readString(data, Pos+1, FromLength);
+		Pos += FromLength + 1;
+		ToLength = cast(uint)data[Pos];
+		To = c3Core.readString(data, Pos+1, ToLength);
+		Pos += ToLength + 1;
+		SuffixLength = cast(uint)data[Pos];
+		Suffix = c3Core.readString(data, Pos+1, SuffixLength);
+		Pos += SuffixLength + 1;
+		MessageLength = cast(uint)data[Pos];
+		Message = c3Core.readString(data, Pos+1, MessageLength);
+	}
 	
 	ubyte[] create() {
 		PacketBuilder pb = new PacketBuilder(Size, Type);
@@ -359,7 +493,24 @@ class Unknown2079 {
 		return pb.seal();
 	}
 };
-
+class WalkPacket {
+	ushort Size;
+	ushort Type;
+	uint direction;
+	uint UID;
+	uint movetype;
+	uint Timer;
+	uint Unknown;
+	this(ubyte[] data) {
+		UID = c3Core.readUint32(data, 6);
+		direction = c3Core.readUint32(data, 2);
+		movetype = c3Core.readUint32(data, 10);
+		if(movetype < 2)
+			direction = direction % 8;
+		else if(movetype > 1)
+			direction = direction % 24;
+	}
+}
 class Unknown2078 {
 	ushort Size;
 	ushort Type;

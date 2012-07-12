@@ -8,6 +8,7 @@ public class c3Char {
 	public uint job;
 	public string spouse;
 	public c3Location curLoc;
+	public c3Location prevLoc;
 	public c3Vital curVitals;
 	public c3Currency curCurrency;
 	public uint model;
@@ -15,8 +16,11 @@ public class c3Char {
 	public uint curLevel;
 	public uint rebornCount;
 	public ulong curExp;
+	public uint PrevX;
+	public uint PrevY;
 	this() {
 		curLoc = new c3Location();
+		prevLoc = new c3Location();
 		curVitals = new c3Vital();
 		curCurrency = new c3Currency();
 	}

@@ -23,10 +23,9 @@ public class GameEncryption : BaseEncryption {
 		string Gstr = "05";
 		BN_hex2bn(&P, Pstr.toStringz());
 		BN_hex2bn(&G, Gstr.toStringz());
-		writefln("p / g %s / %s", BN_num_bytes(P), BN_num_bytes(G));
 		key_exchange.p = P;
 		key_exchange.g = G;
-		writefln("dh gen %s", DH_generate_key(&key_exchange));
+		DH_generate_key(&key_exchange);
 	}
 	
 	public ubyte[] generateServerPack() {
@@ -55,9 +54,7 @@ public class GameEncryption : BaseEncryption {
 		foreach(char c; Gstr)
 			pb.putByte(cast(ubyte)c);
 		pb.putInt(128);
-		writefln("bn size %s", BN_num_bytes(key_exchange.pub_key));
 		char * keyArr = BN_bn2hex(key_exchange.pub_key);
-		writefln("key arr %s", to!string(keyArr));
 		pb.putString(to!string(keyArr));
 		return pb.sealTQ();
 	}

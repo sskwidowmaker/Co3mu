@@ -1,18 +1,51 @@
-module Co3mu.XML;
+module Co3mu.Database;
 
-import std.stdio, std.xml, std.file, std.conv, std.array, Co3mu.Core, Co3mu.Character, Co3mu.Enums;
+import std.stdio, std.xml, std.file, std.conv, std.array, Co3mu.Core, Co3mu.Character, Co3mu.Defines;
 
-public class XMLOp { 
-	public const string baseDir = "C:\\home-andrew\\andrew\\Co3mu\\dat\\";
+public class Data {
+	/* Class used to do transactions on server data.
+	Characters, Items, any kind of server-side data 
+	*/
+	/* 
+	Where does the characters/accounts directory lie after the BASE_DIR path(c3core)?
+	Ex: C;\server\dat\characters
+	set CHARACTERS = dat\\characters if BASE_DIR = "C:\\server\\"
+	same for accounts, see above replacing characters with accounts
+	*/
+	public static const string CHARACTERS = "dat\\characters\\";
+	public static const string ACCOUNTS = "dat\\accounts\\";
 	public const string fileExt = ".xml";
 	public const string NO_CHARACTER = "@__-NEED_CREATE-__!";
+	/*
+	Method: getNextUID()
+	Return: nextUID when server starts
+	Expl: Loads the highest UID from characters' files, then sets the next NEW uid given to a NEW player equal to one-higher than the highest one it finds
+	*/
+	public static uint getNextUID() {
+		uint largestID = 1100000;
+		DocumentParser xml;
+		foreach(string file; dirEntries(c3Core.BASE_DIR ~ CHARACTERS, SpanMode.shallow)) {
+			xml = new DocumentParser(cast(string)std.file.read(file));
+			uint curUID = 0;
+			xml.onStartTag["character"] = (ElementParser xml) {
+				xml.onEndTag["UID"] = (in Element e) { curUID = to!int(e.text());
+					if(curUID >= largestID)
+					 	largestID = curUID;
+			 	};
+				xml.parse();
+			};
+			xml.parse();
+		}
+		return ++largestID;
+	}
+	
 	public static bool accountExists(string account) {
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		return exists(account);
 	}
 	
 	public static bool passwordCorrect(string account, string password) { 
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		string s = cast(string)std.file.read(account);
 		auto xml = new DocumentParser(s);
 		string correctPass = "";
@@ -25,7 +58,7 @@ public class XMLOp {
 	}
 	
 	public static bool hasCharacter(string account) {
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		string s = cast(string)std.file.read(account);
 		auto xml = new DocumentParser(s);
 		string char_name = "";
@@ -38,7 +71,7 @@ public class XMLOp {
 	}
 	
 	public static string getCharName(string account) {
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		string s = cast(string)std.file.read(account);
 		auto xml = new DocumentParser(s);
 		string char_name = "";
@@ -53,14 +86,14 @@ public class XMLOp {
 	public static c3Char loadCharacter(string account) {
 		c3Char charStor = new c3Char();
 		charStor.name = getCharName(account);
-		string name = baseDir ~ "characters\\" ~ charStor.name ~ fileExt;
+		string name = c3Core.BASE_DIR ~ CHARACTERS ~ charStor.name ~ fileExt;
 		auto xml = new DocumentParser(cast(string)std.file.read(name));
 		xml.onStartTag["character"] = (ElementParser xml) { 
 			xml.onEndTag["charName"] = (in Element e) { charStor.name = e.text(); };
-			xml.onEndTag["str"] = (in Element e) { charStor.curVitals.Strength = to!int(e.text()); };
-			xml.onEndTag["dex"] = (in Element e) { charStor.curVitals.Dexterity = to!int(e.text()); };
-			xml.onEndTag["spi"] = (in Element e) { charStor.curVitals.Spirit = to!int(e.text()); };
-			xml.onEndTag["vit"] = (in Element e) { charStor.curVitals.Vitality = to!int(e.text()); };
+			xml.onEndTag["str"] = (in Element e) { /*charStor.curVitals.Strength = to!int(e.text());*/charStor.curVitals.setStr(to!uint(e.text())); };
+			xml.onEndTag["dex"] = (in Element e) { /*charStor.curVitals.Dexterity = to!int(e.text());*/charStor.curVitals.setDex(to!uint(e.text())); };
+			xml.onEndTag["spi"] = (in Element e) { /*charStor.curVitals.Spirit = to!int(e.text());*/charStor.curVitals.setSpi(to!uint(e.text())); };
+			xml.onEndTag["vit"] = (in Element e) { /*charStor.curVitals.Vitality = to!int(e.text());*/charStor.curVitals.setVit(to!uint(e.text())); };
 			xml.onEndTag["hairStyle"] = (in Element e) { charStor.hair = to!int(e.text()); };
 			xml.onEndTag["model"] = (in Element e) { charStor.model = to!int(e.text()); };
 			xml.onEndTag["job"] = (in Element e) { charStor.job = to!int(e.text()); };
@@ -70,12 +103,12 @@ public class XMLOp {
 			xml.onEndTag["dynMapID"] = (in Element e) { charStor.curLoc.DynID= to!int(e.text()); };
 			xml.onEndTag["curX"] = (in Element e) { charStor.curLoc.X= to!int(e.text()); };
 			xml.onEndTag["curY"] = (in Element e) { charStor.curLoc.Y= to!int(e.text()); };
-			xml.onEndTag["curHP"] = (in Element e) { charStor.curVitals.curHP = to!int(e.text()); };
-			xml.onEndTag["curMP"] = (in Element e) { charStor.curVitals.curMP = to!int(e.text()); };
-			xml.onEndTag["statPoints"] = (in Element e) { charStor.curVitals.StatPoints = to!int(e.text()); };
-			xml.onEndTag["money"] = (in Element e) { charStor.curCurrency.Money = to!int(e.text()); };
-			xml.onEndTag["cps"] = (in Element e) { charStor.curCurrency.CPs = to!int(e.text()); };
-			xml.onEndTag["vps"] = (in Element e) { charStor.curCurrency.VirtuePoints = to!int(e.text()); };
+			xml.onEndTag["curHP"] = (in Element e) { /*charStor.curVitals.curHP = to!int(e.text());*/charStor.curVitals.setCurHP(to!uint(e.text())); };
+			xml.onEndTag["curMP"] = (in Element e) { /*charStor.curVitals.curMP = to!int(e.text());*/charStor.curVitals.setCurMP(to!uint(e.text())); };
+			xml.onEndTag["statPoints"] = (in Element e) { /*charStor.curVitals.StatPoints = to!int(e.text());*/charStor.curVitals.setStatPoints(to!uint(e.text())); };
+			xml.onEndTag["money"] = (in Element e) { /*charStor.curCurrency.Money = to!int(e.text());*/ charStor.curCurrency.setMoney(to!uint(e.text())); };
+			xml.onEndTag["cps"] = (in Element e) { /*charStor.curCurrency.CPs = to!int(e.text());*/ charStor.curCurrency.setCPs(to!uint(e.text())); };
+			xml.onEndTag["vps"] = (in Element e) { /*charStor.curCurrency.VirtuePoints = to!int(e.text());*/ charStor.curCurrency.setVPs(to!uint(e.text())); };
 			xml.onEndTag["level"] = (in Element e) { charStor.curLevel = to!int(e.text()); };
 			xml.onEndTag["reborn"] = (in Element e) { charStor.rebornCount = to!int(e.text()); };
 			xml.onEndTag["exp"] = (in Element e) { charStor.curExp = to!ulong(e.text()); };
@@ -90,10 +123,10 @@ public class XMLOp {
 		auto element = new Element("character");
 		element ~= new Element("charName", charStor.name);
 		element ~= new Element("charAccount", account);
-		element ~= new Element("str", to!string(charStor.curVitals.Strength));
-		element ~= new Element("dex", to!string(charStor.curVitals.Dexterity));
-		element ~= new Element("spi", to!string(charStor.curVitals.Spirit));
-		element ~= new Element("vit", to!string(charStor.curVitals.Vitality));
+		element ~= new Element("str", to!string(charStor.curVitals.getStr));
+		element ~= new Element("dex", to!string(charStor.curVitals.getDex));
+		element ~= new Element("spi", to!string(charStor.curVitals.getSpi));
+		element ~= new Element("vit", to!string(charStor.curVitals.getVit));
 		element ~= new Element("hairStyle", to!string(charStor.hair));
 		element ~= new Element("model", to!string(charStor.model));
 		element ~= new Element("job", to!string(charStor.job));
@@ -103,22 +136,22 @@ public class XMLOp {
 		element ~= new Element("dynMapID", to!string(charStor.curLoc.DynID));
 		element ~= new Element("curX", to!string(charStor.curLoc.X));
 		element ~= new Element("curY", to!string(charStor.curLoc.Y));
-		element ~= new Element("curHP", to!string(charStor.curVitals.curHP));
-		element ~= new Element("curMP", to!string(charStor.curVitals.curMP));
-		element ~= new Element("statPoints", to!string(charStor.curVitals.StatPoints));
-		element ~= new Element("money", to!string(charStor.curCurrency.Money));
-		element ~= new Element("cps", to!string(charStor.curCurrency.CPs));
-		element ~= new Element("vps", to!string(charStor.curCurrency.VirtuePoints));
+		element ~= new Element("curHP", to!string(charStor.curVitals.getCurHP));
+		element ~= new Element("curMP", to!string(charStor.curVitals.getCurMP));
+		element ~= new Element("statPoints", to!string(charStor.curVitals.getStatPoints));
+		element ~= new Element("money", to!string(charStor.curCurrency.getMoney));
+		element ~= new Element("cps", to!string(charStor.curCurrency.getCPs));
+		element ~= new Element("vps", to!string(charStor.curCurrency.getVPs));
 		element ~= new Element("level", to!string(charStor.curLevel));
 		element ~= new Element("reborn", to!string(charStor.rebornCount));
 		element ~= new Element("exp", to!string(charStor.curExp));
 		doc ~= element;
-		string name = baseDir ~ "characters\\" ~ charStor.name ~ fileExt;
+		string name = c3Core.BASE_DIR ~ CHARACTERS ~ charStor.name ~ fileExt;
 		std.file.write(name, doc.toString());
 	}
 	
 	public static bool charExists(string charName) {
-		charName = baseDir ~ "characters\\" ~ charName ~ fileExt;
+		charName = c3Core.BASE_DIR ~ CHARACTERS ~ charName ~ fileExt;
 		return exists(charName);
 	}
 	
@@ -153,7 +186,7 @@ public class XMLOp {
 				element ~= new Element("exp", "0");
 				doc ~= element;
 				characterToAccount(name, account);
-				name = baseDir ~ "characters\\" ~ name ~ fileExt;
+				name = c3Core.BASE_DIR ~ CHARACTERS ~ name ~ fileExt;
 				std.file.write(name, doc.toString());
 			} else
 				return false;
@@ -163,7 +196,7 @@ public class XMLOp {
 	}
 	
 	public static void characterToAccount(string charName, string account) {
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		string s = cast(string)std.file.read(account);
 		auto xml = new DocumentParser(s);
 		string password, user;
@@ -176,22 +209,6 @@ public class XMLOp {
 		saveAccount(user, password, charName);
 	}
 	
-	public static uint getNextUID() {
-		uint largestID = 1100000;
-		foreach(string file; dirEntries(baseDir ~ "characters\\", SpanMode.shallow)) {
-			auto xml = new DocumentParser(file);
-			uint curUID = 0;
-			xml.onStartTag["character"] = (ElementParser xml) {
-				xml.onEndTag["UID"] = (in Element e) { curUID = to!int(e.text()); };
-				xml.parse();
-			};
-			xml.parse();
-			if(curUID > largestID)
-				largestID = curUID;
-		}
-		return ++largestID;
-	}
-	
 	public static void saveAccount(string user, string pass, string cName) {
 		auto doc = new Document(new Tag("Co3Account"));
 		auto element = new Element("account");
@@ -199,7 +216,7 @@ public class XMLOp {
 		element ~= new Element("password", pass);
 		element ~= new Element("character", cName);
 		doc ~= element;
-		user = baseDir ~ "accounts\\" ~ user ~ fileExt;
+		user = c3Core.BASE_DIR ~ ACCOUNTS ~ user ~ fileExt;
 		std.file.write(user, doc.toString());
 	}
 	
@@ -210,7 +227,7 @@ public class XMLOp {
 		element ~= new Element("password", password);
 		element ~= new Element("character", NO_CHARACTER);
 		doc ~= element;
-		account = baseDir ~ "accounts\\" ~ account ~ fileExt;
+		account = c3Core.BASE_DIR ~ ACCOUNTS ~ account ~ fileExt;
 		std.file.write(account, doc.toString());
 	}
-} 
+}
